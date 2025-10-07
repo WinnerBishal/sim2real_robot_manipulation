@@ -15,6 +15,7 @@ class SubscribeCameraNode(Node):
         self.isAvailable = False
     
         self.color_cam_raw_sub = self.create_subscription(Image, "/camera/color/image_raw", self.displayCamCallback, 1)
+        self.depth_cam_sub = self.create_subscription(Image, "/camera/depth/image_raw", self.displayDepthCallback, 1)
         # self.color_cam_info_sub = self.create_subscription(CameraInfo, "/camera/color/camera_info", self.logCamInfoCallback, 10)
 
         self.cv_bridge = CvBridge()
@@ -30,6 +31,19 @@ class SubscribeCameraNode(Node):
         
         else:
             self.get_logger().info("Image could not be loaded.")
+    
+    def displayDepthCallback(self, msg):
+
+        depth_img = self.cv_bridge.imgmsg_to_cv2(msg)
+        norm_depth_img = cv2.normalize(depth_img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+        colored_norm_depth_img = cv2.applyColorMap(norm_depth_img, cv2.COLORMAP_JET)
+        
+        if depth_img is not None:
+            cv2.imshow("Live Depth Cam", colored_norm_depth_img)
+            cv2.waitKey(1)
+        
+        else:
+            self.get_logger().info("Depth image could not be loaded.")
     
     # def logCamInfoCallback(self, msg):
 
