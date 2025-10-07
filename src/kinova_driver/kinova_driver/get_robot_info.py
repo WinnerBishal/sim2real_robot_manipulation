@@ -6,6 +6,7 @@ from rclpy.node import Node
 
 from std_srvs.srv import Trigger
 from kinova_interfaces.msg import JointState7D
+from sensor_msgs.msg import JointState
 from kinova_api_utils import utilities
 
 # Import Kinova API essentials
@@ -36,7 +37,7 @@ class GetRobotInfoNode(Node):
 
         self.connect_srv = self.create_service(Trigger, "connect_to_robot", self.connectCallback)
         
-        self.joint_state_pub = self.create_publisher(JointState7D, "joint_state", 10)
+        self.joint_state_pub = self.create_publisher(JointState, "joint_states", 10)
         self.joint_state_pub_timer = self.create_timer(0.1, self.joint_stateCallback)
 
         self.get_logger().info("WAITING for connection request ......")
@@ -84,15 +85,22 @@ class GetRobotInfoNode(Node):
         try:
 
             joint_object = self.base.GetMeasuredJointAngles()
-            joint_msg = JointState7D()
+            
+            joint_msg = JointState()
 
-            joint_msg.j1 = joint_object.joint_angles[0].value
-            joint_msg.j2 = joint_object.joint_angles[1].value
-            joint_msg.j3 = joint_object.joint_angles[2].value
-            joint_msg.j4 = joint_object.joint_angles[3].value
-            joint_msg.j5 = joint_object.joint_angles[4].value
-            joint_msg.j6 = joint_object.joint_angles[5].value
-            joint_msg.j7 = joint_object.joint_angles[6].value
+            joint_msg.header.stamp = self.get_clock().now().to_msg()
+
+
+            j1 = joint_object.joint_angles[0].value
+            j2 = joint_object.joint_angles[1].value
+            j3 = joint_object.joint_angles[2].value
+            j4 = joint_object.joint_angles[3].value
+            j5 = joint_object.joint_angles[4].value
+            j6 = joint_object.joint_angles[5].value
+            j7 = joint_object.joint_angles[6].value
+
+            joint_msg.name = ['gen3_joint_1', 'gen3_joint_2', 'gen3_joint_3', 'gen3_joint_4', 'gen3_joint_5', 'gen3_joint_6', 'gen3_joint_7']
+            joint_msg.position = [j1, j2, j3, j4, j5, j6, j7]
 
             self.joint_state_pub.publish(joint_msg)
             # self.get_logger().info(f"Published Joints : {joint_msg}")
