@@ -17,9 +17,11 @@ setup(
         # Changed here
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
         (os.path.join('share', package_name, 'description'), glob('description/*')),
-        (os.path.join('share', package_name, 'meshes'), glob('meshes/*')),
-        
-        
+        (os.path.join('share', package_name, 'meshes/g2f85_collision'), glob('meshes/g2f85_collision/*')),
+        (os.path.join('share', package_name, 'meshes/g2f85_visual'), glob('meshes/g2f85_visual/*')),
+        (os.path.join('share', package_name, 'meshes/gen3_arm_collision'), glob('meshes/gen3_arm_collision/*')),
+        (os.path.join('share', package_name, 'meshes/gen3_arm_visual'), glob('meshes/gen3_arm_visual/*')),
+        (os.path.join('share', package_name, 'config'), glob('config/*'))
     ],
     install_requires=['setuptools'],
     zip_safe=True,

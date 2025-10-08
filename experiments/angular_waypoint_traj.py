@@ -174,7 +174,6 @@ def example_trajectory(base, base_cyclic):
         print(result.trajectory_error_report)
         return finished
 
-
 def main():
     
     # Import the utilities helper module

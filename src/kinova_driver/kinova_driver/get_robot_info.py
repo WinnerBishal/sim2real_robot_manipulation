@@ -5,14 +5,18 @@ import rclpy
 from rclpy.node import Node
 
 from std_srvs.srv import Trigger
-from kinova_interfaces.msg import JointState7D
 from sensor_msgs.msg import JointState
-from kinova_api_utils import utilities
+from kinova_interfaces.msg import JointState7D
+
+from tf2_ros import TransformBroadcaster, TransformStamped
+
 
 # Import Kinova API essentials
+from kinova_api_utils import utilities
 
 import sys
 import os
+import numpy as np
 
 from kortex_api.RouterClient import RouterClientSendOptions
 
@@ -35,10 +39,16 @@ class GetRobotInfoNode(Node):
         self.base = None
         self.router = None
 
-        self.connect_srv = self.create_service(Trigger, "connect_to_robot", self.connectCallback)
+        self.joint_angles_api = None                                                                               # API Object containing joint_angles
+
+        self.connect_srv = self.create_service(Trigger, "connect_to_robot", self.connectCallback)               # Service to connect to robot on request
         
-        self.joint_state_pub = self.create_publisher(JointState, "joint_states", 10)
+        self.joint_state_pub = self.create_publisher(JointState, "joint_states", 10)                            # To Publish JointState
         self.joint_state_pub_timer = self.create_timer(0.1, self.joint_stateCallback)
+
+        # self.transform_broadcaster = TransformBroadcaster(self, 10)                                              # To broadcast transform data
+        # self.transform_broadcaster_timer = self.create_timer(0.1, self.transformBroadcaster)
+
 
         self.get_logger().info("WAITING for connection request ......")
 
@@ -84,20 +94,20 @@ class GetRobotInfoNode(Node):
         
         try:
 
-            joint_object = self.base.GetMeasuredJointAngles()
+            self.joint_angles_api = self.base.GetMeasuredJointAngles()
             
             joint_msg = JointState()
 
             joint_msg.header.stamp = self.get_clock().now().to_msg()
 
 
-            j1 = joint_object.joint_angles[0].value
-            j2 = joint_object.joint_angles[1].value
-            j3 = joint_object.joint_angles[2].value
-            j4 = joint_object.joint_angles[3].value
-            j5 = joint_object.joint_angles[4].value
-            j6 = joint_object.joint_angles[5].value
-            j7 = joint_object.joint_angles[6].value
+            j1 = np.deg2rad(self.joint_angles_api.joint_angles[0].value)
+            j2 = np.deg2rad(self.joint_angles_api.joint_angles[1].value)
+            j3 = np.deg2rad(self.joint_angles_api.joint_angles[2].value)
+            j4 = np.deg2rad(self.joint_angles_api.joint_angles[3].value)
+            j5 = np.deg2rad(self.joint_angles_api.joint_angles[4].value)
+            j6 = np.deg2rad(self.joint_angles_api.joint_angles[5].value)
+            j7 = np.deg2rad(self.joint_angles_api.joint_angles[6].value)
 
             joint_msg.name = ['gen3_joint_1', 'gen3_joint_2', 'gen3_joint_3', 'gen3_joint_4', 'gen3_joint_5', 'gen3_joint_6', 'gen3_joint_7']
             joint_msg.position = [j1, j2, j3, j4, j5, j6, j7]
@@ -107,7 +117,18 @@ class GetRobotInfoNode(Node):
 
         except Exception as e:
             self.get_logger().info("Failed to publish joint angles !")
-            self.get_logger().info(f"Caught ERROR :{e}")
+            self.get_logger().info(f"Error in def joint_stateCallback :{e}")
+    
+    # def transformBroadcaster(self):
+
+    #     try:
+    #         ee_pose = self.base.ComputeForwardKinematics(self.joint_angles_api)
+            
+    #     except Exception as e:
+    #         self.get_logger().info(f"Error in def transformBroadcaster(self) : {e}")
+        
+
+
     
     def disconnect_from_robot(self):
 
