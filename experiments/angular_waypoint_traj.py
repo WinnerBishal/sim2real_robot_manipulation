@@ -146,7 +146,7 @@ def example_trajectory(base, base_cyclic):
     
     
    # Verify validity of waypoints
-    result = base.ValidateWaypointList(waypoints);
+    result = base.ValidateWaypointList(waypoints)
     if(len(result.trajectory_error_report.trajectory_error_elements) == 0):
 
         e = threading.Event()

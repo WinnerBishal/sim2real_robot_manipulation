@@ -1,45 +1,49 @@
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch_ros.actions import Node
-from launch.substitutions import LaunchConfiguration
 from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+import xacro
 
 def generate_launch_description():
 
-    # Find urdf
     pkg_path = get_package_share_directory('gen3_description')
-    urdf_file = os.path.join(pkg_path, 'description', 'kinova_gen3.urdf')
-
-    # Read urdf contents
-    with open(urdf_file, 'r') as f:
-        robot_desc = f.read()
     
-    # Create robot_state_publisher node (different from rclpy Node)
+  
+    xacro_file = os.path.join(pkg_path, 'description', 'gen3_with_gripper.urdf.xacro')
+    
+    robot_description_config = xacro.process_file(xacro_file)
+    robot_description = {'robot_description': robot_description_config.toxml()}
+    # =================================
 
+    # Node for the robot_state_publisher
     robot_state_publisher_node = Node(
-        package = 'robot_state_publisher',
+        package='robot_state_publisher',
         executable='robot_state_publisher',
-        name = 'robot_state_publisher',
-        parameters = [{'robot_description': robot_desc}])
-    
-    # joint_state_publisher_gui node
-    joint_state_publisher_gui_node = Node(
-        package = 'joint_state_publisher_gui',
-        executable='joint_state_publisher_gui',
-        name='joint_state_publisher_gui'
+        output='screen',
+        parameters=[robot_description] # Pass the processed URDF to the node
     )
 
-    # rviz2 node
+    # Node for the joint_state_publisher_gui for manual control
+    joint_state_publisher_gui_node = Node(
+        package='joint_state_publisher_gui',
+        executable='joint_state_publisher_gui',
+        name='joint_state_publisher_gui',
+    )
+    
+    # Node for RViz
+    rviz_config_file = os.path.join(pkg_path, 'config', 'display.rviz')
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',
-        name = 'rviz2',
-        arguments = ['-d', os.path.join(pkg_path, 'config', 'display.rviz')]
+        name='rviz2',
+        output='screen',
+        arguments=['-d', rviz_config_file]
     )
 
     return LaunchDescription([
-        robot_state_publisher_node,
         # joint_state_publisher_gui_node,
-        rviz_node
+        robot_state_publisher_node,
+        rviz_node,
     ])
