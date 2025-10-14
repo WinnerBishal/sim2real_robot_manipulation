@@ -15,8 +15,8 @@ class SubscribeCameraNode(Node):
         self.isAvailable = False
     
         self.color_cam_raw_sub = self.create_subscription(Image, "/camera/color/image_raw", self.displayCamCallback, 1)
-        self.depth_cam_sub = self.create_subscription(Image, "/camera/depth/image_raw", self.displayDepthCallback, 1)
-        # self.color_cam_info_sub = self.create_subscription(CameraInfo, "/camera/color/camera_info", self.logCamInfoCallback, 10)
+        self.depth_cam_sub = self.create_subscription(Image, "/camera/depth_registered/image_rect", self.displayDepthCallback, 1)
+        self.color_cam_info_sub = self.create_subscription(CameraInfo, "/camera/color/camera_info", self.logCamInfoCallback, 10)
 
         self.cv_bridge = CvBridge()
 
@@ -45,14 +45,14 @@ class SubscribeCameraNode(Node):
         else:
             self.get_logger().info("Depth image could not be loaded.")
     
-    # def logCamInfoCallback(self, msg):
+    def logCamInfoCallback(self, msg):
 
-    #     try:
-    #         # pass
-    #         self.get_logger().info(f"Received Image of shape: ({msg.width}, {msg.height})")
+        try:
+            # pass
+            self.get_logger().info(f"Received Image of shape: ({msg.width}, {msg.height})")
         
-    #     except Exception as e:
-    #         self.get_logger().info(f"Error : {e}")
+        except Exception as e:
+            self.get_logger().info(f"Error : {e}")
 
 def main(args = None):
     rclpy.init(args=args)

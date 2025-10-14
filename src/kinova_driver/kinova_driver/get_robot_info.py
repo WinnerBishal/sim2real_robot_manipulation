@@ -18,16 +18,9 @@ import sys
 import os
 import numpy as np
 
-from kortex_api.RouterClient import RouterClientSendOptions
 
-from kortex_api.autogen.client_stubs.DeviceManagerClientRpc import DeviceManagerClient
-from kortex_api.autogen.client_stubs.DeviceConfigClientRpc import DeviceConfigClient
 from kortex_api.autogen.client_stubs.BaseClientRpc import BaseClient
-
-from kortex_api.autogen.messages import Common_pb2, DeviceManager_pb2, DeviceConfig_pb2, Session_pb2, Base_pb2, ProductConfiguration_pb2
-
-from google.protobuf import json_format
-
+from kortex_api.autogen.client_stubs.BaseCyclicClientRpc import BaseCyclicClient
 
 
 class GetRobotInfoNode(Node):
@@ -37,18 +30,16 @@ class GetRobotInfoNode(Node):
         self.is_connected = False
         self.connection = None
         self.base = None
+        self.base_cyclic = None
         self.router = None
 
-        self.joint_angles_api = None                                                                               # API Object containing joint_angles
+        self.joint_angles_api = None    
+        self.gripper_value_api = None                                                                           # API Object containing joint_angles
 
         self.connect_srv = self.create_service(Trigger, "connect_to_robot", self.connectCallback)               # Service to connect to robot on request
         
         self.joint_state_pub = self.create_publisher(JointState, "joint_states", 10)                            # To Publish JointState
         self.joint_state_pub_timer = self.create_timer(0.1, self.joint_stateCallback)
-
-        # self.transform_broadcaster = TransformBroadcaster(self, 10)                                              # To broadcast transform data
-        # self.transform_broadcaster_timer = self.create_timer(0.1, self.transformBroadcaster)
-
 
         self.get_logger().info("WAITING for connection request ......")
 
@@ -70,6 +61,9 @@ class GetRobotInfoNode(Node):
             self.connection = utilities.DeviceConnection.createTcpConnection(connection_args) # Create TCP Connection
             self.router = self.connection.__enter__()     
             self.base = BaseClient(self.router)                                         # Shareable robot authenticated instance
+            self.base_cyclic = BaseCyclicClient(self.router)
+
+            self.feedback = None
             
             self.is_connected = True
             
@@ -94,23 +88,26 @@ class GetRobotInfoNode(Node):
         
         try:
 
-            self.joint_angles_api = self.base.GetMeasuredJointAngles()
-            
+            self.feedback = self.base_cyclic.RefreshFeedback()
+            actuators = self.feedback.actuators
+
             joint_msg = JointState()
 
             joint_msg.header.stamp = self.get_clock().now().to_msg()
 
 
-            j1 = np.deg2rad(self.joint_angles_api.joint_angles[0].value)
-            j2 = np.deg2rad(self.joint_angles_api.joint_angles[1].value)
-            j3 = np.deg2rad(self.joint_angles_api.joint_angles[2].value)
-            j4 = np.deg2rad(self.joint_angles_api.joint_angles[3].value)
-            j5 = np.deg2rad(self.joint_angles_api.joint_angles[4].value)
-            j6 = np.deg2rad(self.joint_angles_api.joint_angles[5].value)
-            j7 = np.deg2rad(self.joint_angles_api.joint_angles[6].value)
+            j1 = np.deg2rad(actuators[0].position)
+            j2 = np.deg2rad(actuators[1].position)
+            j3 = np.deg2rad(actuators[2].position)
+            j4 = np.deg2rad(actuators[3].position)
+            j5 = np.deg2rad(actuators[4].position)
+            j6 = np.deg2rad(actuators[5].position)
+            j7 = np.deg2rad(actuators[6].position)
 
-            joint_msg.name = ['gen3_joint_1', 'gen3_joint_2', 'gen3_joint_3', 'gen3_joint_4', 'gen3_joint_5', 'gen3_joint_6', 'gen3_joint_7']
-            joint_msg.position = [j1, j2, j3, j4, j5, j6, j7]
+            g0 = self.feedback.interconnect.gripper_feedback.motor[0].position              
+
+            joint_msg.name = ['gen3_joint_1', 'gen3_joint_2', 'gen3_joint_3', 'gen3_joint_4', 'gen3_joint_5', 'gen3_joint_6', 'gen3_joint_7', 'gen3_robotiq_85_left_knuckle_joint']
+            joint_msg.position = [j1, j2, j3, j4, j5, j6, j7, g0-1]
 
             self.joint_state_pub.publish(joint_msg)
             # self.get_logger().info(f"Published Joints : {joint_msg}")
@@ -118,16 +115,6 @@ class GetRobotInfoNode(Node):
         except Exception as e:
             self.get_logger().info("Failed to publish joint angles !")
             self.get_logger().info(f"Error in def joint_stateCallback :{e}")
-    
-    # def transformBroadcaster(self):
-
-    #     try:
-    #         ee_pose = self.base.ComputeForwardKinematics(self.joint_angles_api)
-            
-    #     except Exception as e:
-    #         self.get_logger().info(f"Error in def transformBroadcaster(self) : {e}")
-        
-
 
     
     def disconnect_from_robot(self):
