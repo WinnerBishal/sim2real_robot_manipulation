@@ -223,7 +223,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://gen3_description/meshes/gen3_arm_visual/bracelet_no_vision_link.dae"/>
+        <mesh filename="package://gen3_description/meshes/gen3_arm_visual/bracelet_with_vision_link.dae"/>
       </geometry>
       <material name="">
         <color rgba="0.75294 0.75294 0.75294 1"/>
@@ -232,7 +232,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://gen3_description/meshes/gen3_arm_collision/bracelet_no_vision_link.STL"/>
+        <mesh filename="package://gen3_description/meshes/gen3_arm_collision/bracelet_with_vision_link.STL"/>
       </geometry>
     </collision>
   </link>
@@ -474,7 +474,7 @@
     <child link="gen3_robotiq_85_left_inner_knuckle_link"/>
     <axis xyz="0 -1 0"/>
     <origin rpy="0 0 0" xyz="0.0127 0.0 0.06142"/>
-    <mimic joint="gen3_robotiq_85_left_knuckle_joint"/>
+    <mimic joint="gen3_robotiq_85_left_knuckle_joint" multiplier="-1"/>
   </joint>
   <joint name="gen3_robotiq_85_right_inner_knuckle_joint" type="continuous">
     <parent link="gen3_robotiq_85_base_link"/>
@@ -495,8 +495,9 @@
     <child link="gen3_robotiq_85_right_finger_tip_link"/>
     <axis xyz="0 -1 0"/>
     <origin rpy="0 0 0" xyz="-0.00563134 0.0 0.04718515"/>
-    <mimic joint="gen3_robotiq_85_left_knuckle_joint"/>
+    <mimic joint="gen3_robotiq_85_left_knuckle_joint" multiplier="-1"/>
   </joint>
+
   <link name="wrist_camera_link"/>
   <joint name="wrist_camera_joint" type="fixed">
     <parent link="gen3_bracelet_link"/>
