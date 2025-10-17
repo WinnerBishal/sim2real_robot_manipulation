@@ -6,7 +6,9 @@ from rclpy.node import Node
 
 from std_srvs.srv import Trigger
 from sensor_msgs.msg import JointState
-from kinova_interfaces.msg import JointState7D
+from geometry_msgs.msg import Pose
+
+from tf_transformations import quaternion_from_euler
 
 from tf2_ros import TransformBroadcaster, TransformStamped
 
@@ -40,6 +42,9 @@ class GetRobotInfoNode(Node):
         
         self.joint_state_pub = self.create_publisher(JointState, "joint_states", 10)                            # To Publish JointState
         self.joint_state_pub_timer = self.create_timer(0.1, self.joint_stateCallback)
+
+        self.ee_pose_pub = self.create_publisher(Pose, "ee_pose", 10)
+        self.ee_pose_pub_timer = self.create_timer(0.1, self.poseCallback)
 
         self.get_logger().info("WAITING for connection request ......")
 
@@ -115,6 +120,36 @@ class GetRobotInfoNode(Node):
         except Exception as e:
             self.get_logger().info("Failed to publish joint angles !")
             self.get_logger().info(f"Error in def joint_stateCallback :{e}")
+
+    def poseCallback(self):
+
+        if not self.is_connected:
+            return
+        
+        try:
+
+            cartesian_pose = self.base.GetMeasuredCartesianPose()
+
+            pose_msg = Pose()
+            pose_msg.header.stamp = self.get_clock().now().to_msg()
+
+            pose_msg.position.x = cartesian_pose.x
+            pose_msg.position.y = cartesian_pose.y
+            pose_msg.position.z = cartesian_pose.z
+
+            q_array = quaternion_from_euler(cartesian_pose.theta_x, cartesian_pose.theta_y, cartesian_pose.theta_z)
+
+            pose_msg.orientation.x = q_array[0]
+            pose_msg.orientation.y = q_array[1]
+            pose_msg.orientation.z = q_array[2]
+            pose_msg.orientation.w = q_array[3]
+
+            self.ee_pose_pub.publish(pose_msg)
+            self.get_logger().info(f"Published Pose msg : {pose_msg}")
+
+        except Exception as e:
+            self.get_logger().info(f"{e}")
+            
 
     
     def disconnect_from_robot(self):
