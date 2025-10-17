@@ -24,6 +24,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            "collect_images_for_intrinsic = kinova_3d_perception.collect_images_for_intrinsic:main",
+            "collect_images_and_transform = kinova_3d_perception.collect_images_and_transform:main"
         ],
     },
 )
