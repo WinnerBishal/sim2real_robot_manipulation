@@ -504,6 +504,7 @@
     <child link="wrist_camera_link"/>
     <origin rpy="0 1.7444444444444447 -1.5708" xyz="0 -0.06841 -0.05044"/>
   </joint>
+  <!--
   <!-- camera body, with origin at bottom screw mount -->
   <joint name="wrist_mounted_camera_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0 0 0"/>
@@ -614,4 +615,5 @@
     <parent link="gen3_bracelet_link"/>
     <child link="wrist_camera_mount_link"/>
   </joint>
+  -->
 </robot>

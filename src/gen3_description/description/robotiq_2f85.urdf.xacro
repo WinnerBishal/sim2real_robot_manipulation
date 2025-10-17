@@ -149,7 +149,7 @@
     <child link="gen3_robotiq_85_left_inner_knuckle_link"/>
     <axis xyz="0 -1 0"/>
     <origin rpy="0 0 0" xyz="0.0127 0.0 0.06142"/>
-    <mimic joint="gen3_robotiq_85_left_knuckle_joint" multiplier="1"/>
+    <mimic joint="gen3_robotiq_85_left_knuckle_joint" />
   </joint>
   <joint name="gen3_robotiq_85_right_inner_knuckle_joint" type="continuous">
     <parent link="gen3_robotiq_85_base_link"/>
@@ -170,7 +170,7 @@
     <child link="gen3_robotiq_85_right_finger_tip_link"/>
     <axis xyz="0 -1 0"/>
     <origin rpy="0 0 0" xyz="-0.0056 0.0 0.0471"/>
-    <mimic joint="gen3_robotiq_85_left_knuckle_joint" multiplier="1"/>
+    <mimic joint="gen3_robotiq_85_left_knuckle_joint" />
   </joint>
   
 </robot>
