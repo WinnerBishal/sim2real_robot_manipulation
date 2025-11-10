@@ -131,7 +131,7 @@ class GetRobotInfoNode(Node):
             cartesian_pose = self.base.GetMeasuredCartesianPose()
 
             pose_msg = Pose()
-            pose_msg.header.stamp = self.get_clock().now().to_msg()
+            # pose_msg.header.stamp = self.get_clock().now().to_msg()
 
             pose_msg.position.x = cartesian_pose.x
             pose_msg.position.y = cartesian_pose.y
