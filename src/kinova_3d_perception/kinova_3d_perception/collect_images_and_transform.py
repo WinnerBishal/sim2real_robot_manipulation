@@ -13,7 +13,7 @@ from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 
 IMAGE_TOPIC = '/camera/color/image_raw'
-SAVE_FOLDER = os.path.join(os.path.expanduser('~'), 'ros2_images_and_transforms_checkerboard')
+SAVE_FOLDER = os.path.join(os.path.expanduser('~'), 'Oct28NewCalibData')
 
 TO_FRAME = 'gen3_base_link'
 FROM_FRAME = 'gen3_end_effector_link'
