@@ -1,0 +1,10 @@
+# Default initial positions for gen3_'s ros2_control fake system
+
+initial_positions:
+  gen3_joint_1: 0
+  gen3_joint_2: 0
+  gen3_joint_3: 0
+  gen3_joint_4: 0
+  gen3_joint_5: 0
+  gen3_joint_6: 0
+  gen3_joint_7: 0

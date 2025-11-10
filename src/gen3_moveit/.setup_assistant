@@ -1,0 +1,25 @@
+moveit_setup_assistant_config:
+  urdf:
+    package: gen3_description
+    relative_path: description/kinova_gen3.urdf
+  srdf:
+    relative_path: config/gen3_.srdf
+  package_settings:
+    author_name: Winner Bishal
+    author_email: "adhhikari.bishal@gmail.com"
+    generated_timestamp: 1760984539
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity
+  modified_urdf:
+    xacros:
+      - control_xacro
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity

@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="gen3_">
+    <xacro:arg name="initial_positions_file" default="initial_positions.yaml" />
+
+    <!-- Import gen3_ urdf file -->
+    <xacro:include filename="$(find gen3_description)/description/kinova_gen3.urdf" />
+
+    <!-- Import control_xacro -->
+    <xacro:include filename="gen3_.ros2_control.xacro" />
+
+
+    <xacro:gen3__ros2_control name="FakeSystem" initial_positions_file="$(arg initial_positions_file)"/>
+
+</robot>
