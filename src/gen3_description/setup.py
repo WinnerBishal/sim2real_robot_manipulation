@@ -36,6 +36,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            "cam2ee_tf_pub = gen3_description.cam2ee_tf_pub:main"
         ],
     },
 )

@@ -505,7 +505,7 @@
     <origin rpy="0 1.7444444444444447 -1.5708" xyz="0 -0.06841 -0.05044"/>
   </joint>
   <!--
-  <!-- camera body, with origin at bottom screw mount -->
+  
   <joint name="wrist_mounted_camera_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0 0 0"/>
     <parent link="wrist_camera_link"/>
@@ -533,12 +533,10 @@
     </collision>
     <inertial>
       <mass value="0.072"/>
-      <!-- The following are not reliable values, and should not be used for modeling -->
       <origin xyz="0 0 0"/>
       <inertia ixx="0.003881243" ixy="0.0" ixz="0.0" iyy="0.000498940" iyz="0.0" izz="0.003879257"/>
     </inertial>
   </link>
-  <!-- camera depth joints and links -->
   <joint name="wrist_mounted_camera_depth_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0 0 0"/>
     <parent link="wrist_mounted_camera_link"/>
@@ -551,7 +549,6 @@
     <child link="wrist_mounted_camera_depth_optical_frame"/>
   </joint>
   <link name="wrist_mounted_camera_depth_optical_frame"/>
-  <!-- camera left IR joints and links -->
   <joint name="wrist_mounted_camera_infra1_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0 0.0 0"/>
     <parent link="wrist_mounted_camera_link"/>
@@ -564,7 +561,6 @@
     <child link="wrist_mounted_camera_infra1_optical_frame"/>
   </joint>
   <link name="wrist_mounted_camera_infra1_optical_frame"/>
-  <!-- camera right IR joints and links -->
   <joint name="wrist_mounted_camera_infra2_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0 -0.055 0"/>
     <parent link="wrist_mounted_camera_link"/>
@@ -577,7 +573,6 @@
     <child link="wrist_mounted_camera_infra2_optical_frame"/>
   </joint>
   <link name="wrist_mounted_camera_infra2_optical_frame"/>
-  <!-- camera color joints and links -->
   <joint name="wrist_mounted_camera_color_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0 0.015 0"/>
     <parent link="wrist_mounted_camera_link"/>
@@ -590,7 +585,6 @@
     <child link="wrist_mounted_camera_color_optical_frame"/>
   </joint>
   <link name="wrist_mounted_camera_color_optical_frame"/>
-  <!-- Wrist Camera Bracket -->
   <link name="wrist_camera_mount_link">
     <inertial>
       <origin rpy="0 0 0" xyz="0.000281 0.011402 -0.029798"/>

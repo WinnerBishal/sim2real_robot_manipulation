@@ -42,8 +42,17 @@ def generate_launch_description():
         arguments=['-d', rviz_config_file]
     )
 
+    # Node for cam2ee transform broadcaster
+
+    # cam2ee_node = Node(
+    #     package = "gen3_description",
+    #     executable= "cam2ee_tf_pub",
+    #     name = "cam2ee_tf_pub"
+    # )
+
     return LaunchDescription([
         # joint_state_publisher_gui_node,
         robot_state_publisher_node,
         rviz_node,
+        # cam2ee_node
     ])
