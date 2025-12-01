@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
 
 import argparse
+import threading
 
 from kortex_api.TCPTransport import TCPTransport
 from kortex_api.UDPTransport import UDPTransport
 from kortex_api.RouterClient import RouterClient, RouterClientSendOptions
 from kortex_api.SessionManager import SessionManager
 from kortex_api.autogen.messages import Session_pb2
+
+from kortex_api.autogen.client_stubs.BaseClientRpc import BaseClient
+from kortex_api.autogen.client_stubs.BaseCyclicClientRpc import BaseCyclicClient
+
+from kortex_api.autogen.messages import Base_pb2, BaseCyclic_pb2
+
+import numpy as np
 
 def parseConnectionArguments(parser = argparse.ArgumentParser()):
     parser.add_argument("--ip", type=str, help="IP address of destination", default="192.168.1.10")
@@ -77,6 +85,167 @@ class DeviceConnection:
 
         self.transport.disconnect()
 
+class ExecuteRobotAction:
+
+    def __init__(self):
+        
+        self.currentPose = np.zeros(6)
+        self.currentJointAngles = np.zeros(6)
+        self.currentGripperPosition = 0.0
+
+        self.action = None
+        self.goalPose = np.zeros(6)
+
+        self.connection = None
+        self.router = None
+        self.base = None
+        self.baseCyclic = None
+
+        self.jointData = None
+
+        self.isConnected = False
+    
+    def connect_to_robot(self):
+
+        try:
+            connectionArgs = parseConnectionArguments()
+
+            self.connection = DeviceConnection.createTcpConnection(connectionArgs)
+            self.router = self.connection.__enter__()
+            self.base = BaseClient(self.router)
+            self.baseCyclic = BaseCyclicClient(self.router)
+
+            self.isConnected = True
+
+            print("\n Connected to Robot Successfully \n")
+
+            jointData = self.baseCyclic.RefreshFeedback().actuators
+            self.currentJointAngles = [np.deg2rad(jointData[i].position) for i in range(len(jointData))]
+            self.currentGripperPosition = self.baseCyclic.RefreshFeedback().interconnect.gripper_feedback.motor[0].position
+
+        except Exception as e:
+            self.isConnected = False
+            print(f"ERROR in ExecuteRobotAction.connect_to_robot(): {e}")
+    
+    def get_current_state(self):
+
+        self.jointData = self.baseCyclic.RefreshFeedback().actuators
+        self.currentJointAngles = [np.deg2rad(self.jointData[i].position) for i in range(len(self.jointData))]
+        self.currentGripperPosition = self.baseCyclic.RefreshFeedback().interconnect.gripper_feedback.motor[0].position
+
+        return self.currentJointAngles + [self.currentGripperPosition]
+    
+    def disconnect_from_robot(self):
+        
+        try:
+            disconnect = self.connection.__exit__()
+            print(f"Disconnected from robot. {disconnect}")
+        
+        except Exception as e:
+            print(f"Error disconnecting: {e}")
+    
+    def check_for_end_or_abort(self, e):
+    
+        def check(notification, e = e):
+            print("EVENT : " + \
+                Base_pb2.ActionEvent.Name(notification.action_event))
+            if notification.action_event == Base_pb2.ACTION_END \
+            or notification.action_event == Base_pb2.ACTION_ABORT:
+                e.set()
+        return check
+
+
+    def move_robot(self, action):
+
+        robotAction = Base_pb2.Action()
+        robotAction.name = "Cartesian Action Movement"
+        robotAction.application_data = ""
+
+        poseData = self.base.GetMeasuredCartesianPose()
+
+        self.goalPose[0] = poseData.x + action[0]
+        self.goalPose[1] = poseData.y + action[1]
+        self.goalPose[2] = poseData.z + action[2]
+        self.goalPose[3] = poseData.theta_x + action[3]
+        self.goalPose[4] = poseData.theta_y + action[4]
+        self.goalPose[5] = poseData.theta_z + action[5]
+
+        commandPose = robotAction.reach_pose.target_pose
+
+        commandPose.x = self.goalPose[0]
+        commandPose.y = self.goalPose[1]
+        commandPose.z = self.goalPose[2]
+        commandPose.theta_x = self.goalPose[3]
+        commandPose.theta_y = self.goalPose[4]
+        commandPose.theta_z = self.goalPose[5]
+        
+        # Just a way to check if the action is successfully executed by the robot.
+
+        e = threading.Event()
+        notif_handle = self.base.OnNotificationActionTopic(
+            self.check_for_end_or_abort(e),
+            Base_pb2.NotificationOptions()
+        )
+
+        # Execute the commands here
+        print("Executing Action")
+        self.base.ExecuteAction(robotAction)
+
+        finished = e.wait(20)
+        self.base.Unsubscribe(notif_handle)
+
+        if finished:
+            print("Current robot action complete.")
+        
+        else:
+            print("Timeout on action notification wait")
+        
+    
+    def move_gripper(self, action):
+
+        currentPosition = self.baseCyclic.RefreshFeedback().interconnect.gripper_feedback.motor[0].position
+        print(f"Current Position: {currentPosition}")
+        targetPosition = 1 - action[6]
+
+        gripperCommand = Base_pb2.GripperCommand()
+        finger = gripperCommand.gripper.finger.add()
+
+        # Run gripper in position mode
+
+        gripperCommand.mode = Base_pb2.GRIPPER_POSITION
+        finger.finger_identifier = 1
+        finger.value = targetPosition
+
+        self.base.SendGripperCommand(gripperCommand)
+
+        print("Gripper Commanded")
+    
+    def act(self, action):
+
+        if not self.isConnected:
+            print("Robot is not connected, exiting !")
+            return False
+        
+        self.move_robot(action)
+        self.move_gripper(action)
+
+        # FOR LOGGING PURPOSES
+        poseData = self.base.GetMeasuredCartesianPose()
+        jointData = self.baseCyclic.RefreshFeedback().actuators
+
+        self.currentJointAngles = [np.deg2rad(jointData[i].position) for i in range(len(jointData))]
+
+        self.currentPose[0] = poseData.x
+        self.currentPose[1] = poseData.y
+        self.currentPose[2] = poseData.z
+        self.currentPose[3] = poseData.theta_x
+        self.currentPose[4] = poseData.theta_y
+        self.currentPose[5] = poseData.theta_z
+
+        self.currentGripperPosition = self.baseCyclic.RefreshFeedback().interconnect.gripper_feedback.motor[0].position
+
+        
+
 def check_robot_connection(args):
 
     try:
@@ -89,3 +258,11 @@ def check_robot_connection(args):
     except:
 
         return False
+    
+
+if __name__ == "__main__":
+
+    robot = ExecuteRobotAction()
+    robot.connect_to_robot()
+    robot.act([0, 0, 0.1, 0, 0, 0, 0.5])
+    
