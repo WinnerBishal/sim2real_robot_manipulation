@@ -38,7 +38,9 @@ class GetRobotInfoNode(Node):
         self.joint_angles_api = None    
         self.gripper_value_api = None                                                                           # API Object containing joint_angles
 
-        self.connect_srv = self.create_service(Trigger, "connect_to_robot", self.connectCallback)               # Service to connect to robot on request
+        # Connect to robot upon node initialization
+        self.connectToRobot()
+        
         
         self.joint_state_pub = self.create_publisher(JointState, "joint_states", 10)                            # To Publish JointState
         self.joint_state_pub_timer = self.create_timer(0.1, self.joint_stateCallback)
@@ -46,15 +48,15 @@ class GetRobotInfoNode(Node):
         self.ee_pose_pub = self.create_publisher(Pose, "ee_pose", 10)
         self.ee_pose_pub_timer = self.create_timer(0.1, self.poseCallback)
 
-        self.get_logger().info("WAITING for connection request ......")
+        self.get_logger().info("Actively publishing robot joint states and end-effector pose.")
 
 
-    def connectCallback(self, request, response):
+    def connectToRobot(self):
 
         # Check if robot is already connected
         if self.is_connected:
-            response.success = True
-            response.message = "Connection Already Established"
+            self.get_logger().info("Robot is already connected.")
+            return
         
         # Try to connect
         try:
@@ -72,19 +74,13 @@ class GetRobotInfoNode(Node):
             
             self.is_connected = True
             
-            response.success = True
-            response.message = "Successfully connected to the robot"
-            self.get_logger().info(response.message)               
+            self.get_logger().info("Successfully connected to the robot.")               
 
         except Exception as e:
             self.is_connected = False
 
-            response.success = False
-            response.message = f"Failed to connect : {e}"
-            self.get_logger().info(response.message)
+            self.get_logger().error(f"Failed to connect to robot: {e}")
             
-        
-        return response
     
     def joint_stateCallback(self):
 
@@ -115,7 +111,7 @@ class GetRobotInfoNode(Node):
             joint_msg.position = [j1, j2, j3, j4, j5, j6, j7, g0-1]
 
             self.joint_state_pub.publish(joint_msg)
-            # self.get_logger().info(f"Published Joints : {joint_msg}")
+            self.get_logger().info(f"Published Joints : {joint_msg}")
 
         except Exception as e:
             self.get_logger().info("Failed to publish joint angles !")
