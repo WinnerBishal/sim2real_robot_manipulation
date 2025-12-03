@@ -25,7 +25,8 @@ setup(
     entry_points={
         'console_scripts': [
             "get_robot_info = kinova_driver.get_robot_info:main",
-            "display_color_cam = kinova_driver.display_color_cam:main"
+            "display_color_cam = kinova_driver.display_color_cam:main",
+            'joystick_teleop = kinova_driver.joystick_teleop:main',
         ],
     },
 )
