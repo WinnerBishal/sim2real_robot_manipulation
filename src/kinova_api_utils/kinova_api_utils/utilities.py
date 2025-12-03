@@ -2,6 +2,7 @@
 
 import argparse
 import threading
+import time
 
 from kortex_api.TCPTransport import TCPTransport
 from kortex_api.UDPTransport import UDPTransport
@@ -104,6 +105,9 @@ class ExecuteRobotAction:
         self.jointData = None
 
         self.isConnected = False
+        
+        # Cache for gripper to avoid spamming the bus during continuous control
+        self.last_gripper_val = -1.0
     
     def connect_to_robot(self):
 
@@ -118,6 +122,12 @@ class ExecuteRobotAction:
             self.isConnected = True
 
             print("\n Connected to Robot Successfully \n")
+            
+            # CRITICAL: Set Servoing Mode to SINGLE_LEVEL_SERVOING
+            # This is required for the robot to accept real-time Twist commands
+            base_servo_mode = Base_pb2.ServoingModeInformation()
+            base_servo_mode.servoing_mode = Base_pb2.SINGLE_LEVEL_SERVOING
+            self.base.SetServoingMode(base_servo_mode)
 
             jointData = self.baseCyclic.RefreshFeedback().actuators
             self.currentJointAngles = [np.deg2rad(jointData[i].position) for i in range(len(jointData))]
@@ -166,9 +176,9 @@ class ExecuteRobotAction:
         self.goalPose[0] = poseData.x + action[0]
         self.goalPose[1] = poseData.y + action[1]
         self.goalPose[2] = poseData.z + action[2]
-        self.goalPose[3] = poseData.theta_x + action[3]
-        self.goalPose[4] = poseData.theta_y + action[4]
-        self.goalPose[5] = poseData.theta_z + action[5]
+        self.goalPose[3] = poseData.theta_x + np.rad2deg(action[3])
+        self.goalPose[4] = poseData.theta_y + np.rad2deg(action[4])
+        self.goalPose[5] = poseData.theta_z + np.rad2deg(action[5])
 
         commandPose = robotAction.reach_pose.target_pose
 
@@ -204,7 +214,7 @@ class ExecuteRobotAction:
     def move_gripper(self, action):
 
         currentPosition = self.baseCyclic.RefreshFeedback().interconnect.gripper_feedback.motor[0].position
-        print(f"Current Position: {currentPosition}")
+        # print(f"Current Position: {currentPosition}") # Commented out for speed
         targetPosition = 1 - action[6]
 
         gripperCommand = Base_pb2.GripperCommand()
@@ -218,10 +228,12 @@ class ExecuteRobotAction:
 
         self.base.SendGripperCommand(gripperCommand)
 
-        print("Gripper Commanded")
+        # print("Gripper Commanded") # Commented out for speed
     
     def act(self, action):
-
+        """
+        Original slow action method.
+        """
         if not self.isConnected:
             print("Robot is not connected, exiting !")
             return False
@@ -244,7 +256,49 @@ class ExecuteRobotAction:
 
         self.currentGripperPosition = self.baseCyclic.RefreshFeedback().interconnect.gripper_feedback.motor[0].position
 
+    def act_twist(self, action, dt=0.05):
+        """
+        High-Frequency Velocity Control Method.
+        action: [dx, dy, dz, droll, dpitch, dyaw, gripper_pos]
+        dt: Time step of the loop (seconds)
+        """
+        if not self.isConnected:
+            print("Robot is not connected, exiting !")
+            return False
+
+        # --- 1. Velocity Command (Twist) ---
+        # Initialize the Twist Command object
+        command = Base_pb2.TwistCommand()
         
+        # NOTE: We use BASE frame for teleop so "Forward" on joystick = "Forward" in room.
+        # If you prefer "Forward" = "Gripper pointing direction", change to CARTESIAN_REFERENCE_FRAME_TOOL
+        command.reference_frame = Base_pb2.CARTESIAN_REFERENCE_FRAME_BASE
+        # command.duration = 0  # 0 means continue indefinitely (streaming mode)
+
+        twist = command.twist
+        
+        # Linear (m/s) -> Recover velocity from displacement (dx/dt)
+        twist.linear_x = action[0] / dt
+        twist.linear_y = action[1] / dt
+        twist.linear_z = action[2] / dt
+
+        # Angular (deg/s) -> Kortex expects degrees for Twist
+        twist.angular_x = np.rad2deg(action[3] / dt)
+        twist.angular_y = np.rad2deg(action[4] / dt)
+        twist.angular_z = np.rad2deg(action[5] / dt)
+
+        # Send command
+        self.base.SendTwistCommand(command)
+
+        # --- 2. Gripper Command (Optimized) ---
+        # Only send command if position changes significantly to save bandwidth
+        current_gripper_cmd = action[6]
+        
+        if abs(current_gripper_cmd - self.last_gripper_val) > 0.01:
+            self.move_gripper(action)
+            self.last_gripper_val = current_gripper_cmd
+        
+        return True
 
 def check_robot_connection(args):
 
@@ -264,5 +318,5 @@ if __name__ == "__main__":
 
     robot = ExecuteRobotAction()
     robot.connect_to_robot()
-    robot.act([0, 0, 0.1, 0, 0, 0, 0.5])
-    
+    # robot.act([0, 0, 0.1, 0, 0, 0, 0.5]) # Old way
+    # robot.act_twist([0, 0, 0.1, 0, 0, 0, 0.5], dt=0.05) # New way
