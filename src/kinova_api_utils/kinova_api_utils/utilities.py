@@ -30,66 +30,44 @@ class DeviceConnection:
 
     @staticmethod
     def createTcpConnection(args): 
-        """
-        returns RouterClient required to create services and send requests to device or sub-devices,
-        """
-
         return DeviceConnection(args.ip, port=DeviceConnection.TCP_PORT, credentials=(args.username, args.password))
 
     @staticmethod
     def createUdpConnection(args): 
-        """        
-        returns RouterClient that allows to create services and send requests to a device or its sub-devices @ 1khz.
-        """
-
         return DeviceConnection(args.ip, port=DeviceConnection.UDP_PORT, credentials=(args.username, args.password))
 
     def __init__(self, ipAddress, port=TCP_PORT, credentials = ("","")):
-
         self.ipAddress = ipAddress
         self.port = port
         self.credentials = credentials
-
         self.sessionManager = None
 
-        # Setup API
         self.transport = TCPTransport() if port == DeviceConnection.TCP_PORT else UDPTransport()
         self.router = RouterClient(self.transport, RouterClient.basicErrorCallback)
 
-    # Called when entering 'with' statement
     def __enter__(self):
-        
         self.transport.connect(self.ipAddress, self.port)
-
         if (self.credentials[0] != ""):
             session_info = Session_pb2.CreateSessionInfo()
             session_info.username = self.credentials[0]
             session_info.password = self.credentials[1]
-            session_info.session_inactivity_timeout = 10000   # (milliseconds)
-            session_info.connection_inactivity_timeout = 2000 # (milliseconds)
-
+            session_info.session_inactivity_timeout = 10000   
+            session_info.connection_inactivity_timeout = 2000 
             self.sessionManager = SessionManager(self.router)
             print("Logging as", self.credentials[0], "on device", self.ipAddress)
             self.sessionManager.CreateSession(session_info)
-
         return self.router
 
-    # Called when exiting 'with' statement
     def __exit__(self, exc_type, exc_value, traceback):
-    
         if self.sessionManager != None:
-
             router_options = RouterClientSendOptions()
             router_options.timeout_ms = 1000 
-            
             self.sessionManager.CloseSession(router_options)
-
         self.transport.disconnect()
 
 class ExecuteRobotAction:
 
     def __init__(self):
-        
         self.currentPose = np.zeros(6)
         self.currentJointAngles = np.zeros(6)
         self.currentGripperPosition = 0.0
@@ -103,14 +81,12 @@ class ExecuteRobotAction:
         self.baseCyclic = None
 
         self.jointData = None
-
         self.isConnected = False
         
         # Cache for gripper to avoid spamming the bus during continuous control
         self.last_gripper_val = -1.0
     
     def connect_to_robot(self):
-
         try:
             connectionArgs = parseConnectionArguments()
 
@@ -120,7 +96,6 @@ class ExecuteRobotAction:
             self.baseCyclic = BaseCyclicClient(self.router)
 
             self.isConnected = True
-
             print("\n Connected to Robot Successfully \n")
             
             # CRITICAL: Set Servoing Mode to SINGLE_LEVEL_SERVOING
@@ -138,24 +113,19 @@ class ExecuteRobotAction:
             print(f"ERROR in ExecuteRobotAction.connect_to_robot(): {e}")
     
     def get_current_state(self):
-
         self.jointData = self.baseCyclic.RefreshFeedback().actuators
         self.currentJointAngles = [np.deg2rad(self.jointData[i].position) for i in range(len(self.jointData))]
         self.currentGripperPosition = self.baseCyclic.RefreshFeedback().interconnect.gripper_feedback.motor[0].position
-
         return self.currentJointAngles + [self.currentGripperPosition]
     
     def disconnect_from_robot(self):
-        
         try:
             disconnect = self.connection.__exit__()
             print(f"Disconnected from robot. {disconnect}")
-        
         except Exception as e:
             print(f"Error disconnecting: {e}")
     
     def check_for_end_or_abort(self, e):
-    
         def check(notification, e = e):
             print("EVENT : " + \
                 Base_pb2.ActionEvent.Name(notification.action_event))
@@ -164,9 +134,7 @@ class ExecuteRobotAction:
                 e.set()
         return check
 
-
     def move_robot(self, action):
-
         robotAction = Base_pb2.Action()
         robotAction.name = "Cartesian Action Movement"
         robotAction.application_data = ""
@@ -181,7 +149,6 @@ class ExecuteRobotAction:
         self.goalPose[5] = poseData.theta_z + np.rad2deg(action[5])
 
         commandPose = robotAction.reach_pose.target_pose
-
         commandPose.x = self.goalPose[0]
         commandPose.y = self.goalPose[1]
         commandPose.z = self.goalPose[2]
@@ -189,15 +156,12 @@ class ExecuteRobotAction:
         commandPose.theta_y = self.goalPose[4]
         commandPose.theta_z = self.goalPose[5]
         
-        # Just a way to check if the action is successfully executed by the robot.
-
         e = threading.Event()
         notif_handle = self.base.OnNotificationActionTopic(
             self.check_for_end_or_abort(e),
             Base_pb2.NotificationOptions()
         )
 
-        # Execute the commands here
         print("Executing Action")
         self.base.ExecuteAction(robotAction)
 
@@ -206,29 +170,41 @@ class ExecuteRobotAction:
 
         if finished:
             print("Current robot action complete.")
-        
         else:
             print("Timeout on action notification wait")
         
-    
     def move_gripper(self, action):
-
+        # Old blocking gripper move
         currentPosition = self.baseCyclic.RefreshFeedback().interconnect.gripper_feedback.motor[0].position
-        # print(f"Current Position: {currentPosition}") # Commented out for speed
         targetPosition = 1 - action[6]
 
         gripperCommand = Base_pb2.GripperCommand()
         finger = gripperCommand.gripper.finger.add()
-
-        # Run gripper in position mode
-
         gripperCommand.mode = Base_pb2.GRIPPER_POSITION
         finger.finger_identifier = 1
         finger.value = targetPosition
-
         self.base.SendGripperCommand(gripperCommand)
 
-        # print("Gripper Commanded") # Commented out for speed
+    def move_vel_gripper(self, gripper_pos_0_to_1):
+        """
+        Sends High-Level Non-Blocking Gripper Command.
+        Compatible with SINGLE_LEVEL_SERVOING used in act_twist().
+        """
+        # Joystick 1.0 (Open) -> Kortex 0.0 (Open)
+        # Joystick 0.0 (Closed) -> Kortex 100.0 (Closed)
+        target_pos = (1.0 - gripper_pos_0_to_1) 
+
+        # We construct a standard GripperCommand instead of LowLevel BaseCyclic
+        # This avoids the WRONG_SERVOING_MODE error.
+        gripper_command = Base_pb2.GripperCommand()
+        gripper_command.mode = Base_pb2.GRIPPER_POSITION
+        
+        finger = gripper_command.gripper.finger.add()
+        finger.finger_identifier = 1
+        finger.value = target_pos
+        
+        # SendGripperCommand is high-level and safe to mix with Twist
+        self.base.SendGripperCommand(gripper_command)
     
     def act(self, action):
         """
@@ -237,23 +213,19 @@ class ExecuteRobotAction:
         if not self.isConnected:
             print("Robot is not connected, exiting !")
             return False
-        
         self.move_robot(action)
         self.move_gripper(action)
-
-        # FOR LOGGING PURPOSES
+        
+        # Logging
         poseData = self.base.GetMeasuredCartesianPose()
         jointData = self.baseCyclic.RefreshFeedback().actuators
-
         self.currentJointAngles = [np.deg2rad(jointData[i].position) for i in range(len(jointData))]
-
         self.currentPose[0] = poseData.x
         self.currentPose[1] = poseData.y
         self.currentPose[2] = poseData.z
         self.currentPose[3] = poseData.theta_x
         self.currentPose[4] = poseData.theta_y
         self.currentPose[5] = poseData.theta_z
-
         self.currentGripperPosition = self.baseCyclic.RefreshFeedback().interconnect.gripper_feedback.motor[0].position
 
     def act_twist(self, action, dt=0.05):
@@ -267,56 +239,43 @@ class ExecuteRobotAction:
             return False
 
         # --- 1. Velocity Command (Twist) ---
-        # Initialize the Twist Command object
         command = Base_pb2.TwistCommand()
-        
-        # NOTE: We use BASE frame for teleop so "Forward" on joystick = "Forward" in room.
-        # If you prefer "Forward" = "Gripper pointing direction", change to CARTESIAN_REFERENCE_FRAME_TOOL
         command.reference_frame = Base_pb2.CARTESIAN_REFERENCE_FRAME_BASE
-        # command.duration = 0  # 0 means continue indefinitely (streaming mode)
+        # command.duration = 0 # Commented out due to version mismatch
 
         twist = command.twist
         
-        # Linear (m/s) -> Recover velocity from displacement (dx/dt)
+        # Linear (m/s)
         twist.linear_x = action[0] / dt
         twist.linear_y = action[1] / dt
         twist.linear_z = action[2] / dt
 
-        # Angular (deg/s) -> Kortex expects degrees for Twist
+        # Angular (deg/s)
         twist.angular_x = np.rad2deg(action[3] / dt)
         twist.angular_y = np.rad2deg(action[4] / dt)
         twist.angular_z = np.rad2deg(action[5] / dt)
 
-        # Send command
         self.base.SendTwistCommand(command)
 
-        # --- 2. Gripper Command (Optimized) ---
-        # Only send command if position changes significantly to save bandwidth
-        current_gripper_cmd = action[6]
-        
-        if abs(current_gripper_cmd - self.last_gripper_val) > 0.01:
-            self.move_gripper(action)
-            self.last_gripper_val = current_gripper_cmd
+        # --- 2. Gripper Command ---
+        # We only send updates if the value changed to avoid spamming the bus,
+        # but since SendGripperCommand is high-level, it handles its own smoothing internally.
+        current_val = action[6]
+        if abs(current_val - self.last_gripper_val) > 0.005:
+            self.move_vel_gripper(current_val)
+            self.last_gripper_val = current_val
         
         return True
 
 def check_robot_connection(args):
-
     try:
         with DeviceConnection.createTcpConnection(args) as router:
-
             pass
-
         return True
-    
     except:
-
         return False
     
 
 if __name__ == "__main__":
-
     robot = ExecuteRobotAction()
     robot.connect_to_robot()
-    # robot.act([0, 0, 0.1, 0, 0, 0, 0.5]) # Old way
-    # robot.act_twist([0, 0, 0.1, 0, 0, 0, 0.5], dt=0.05) # New way
